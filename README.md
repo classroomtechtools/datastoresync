@@ -204,4 +204,3 @@ This following summarizes with code the above:
 
 		#Use the template to sync
 		csv_tree >> db_tree
-
