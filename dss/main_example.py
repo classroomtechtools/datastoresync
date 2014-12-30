@@ -20,7 +20,7 @@ class TeacherBranch:
 
 # Now define the branches
 
-from dss.branches.branch import DataStoreBranches
+from dss.datastore.branch import DataStoreBranches
 
 class CSVDataStoreBranches(DataStoreBranches):
 	pass
@@ -65,7 +65,7 @@ from dss.templates import DefaultTemplate
 class CSVTemplate(DefaultTemplate):
 	pass
 
-from dss.tree import DataStoreTree
+from dss.datastore.tree import DataStoreTree
 
 class CSVTree(DataStoreTree):
 	__branches__ = '__main__/CSVDataStoreBranches'
