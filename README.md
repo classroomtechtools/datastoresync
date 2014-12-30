@@ -2,25 +2,25 @@
 
 This is narrative introduction to the concepts and general practice with this framework. A more comprehensive, code-only introduction can be found in the main_example.py file contained in this repository.
 
-##CONTEXT
+###CONTEXT
 
 You have two databases, maybe one of them is a School Information System, the other is Virtual Learning Environment. You need a framework for syncing those two databases. There's also an LDAP that needs the information as well.
 
-##REAL-WORLD EXAMPLE
+###REAL-WORLD EXAMPLE
 
 datastoresync was invented for schools, so we'll use an example common in schools. For our school, PowerSchool (SIS) is the singple point of truth, and Moodle (VLE) is used for daily teacher-student interactions, we operate a Google Apps for Education (GAFE) domain, and LDAP is used for authentication and account management between both.
 
-##PROBLEM STATEMENT
+###PROBLEM STATEMENT
 
 How can we keep these various tools and their databases integrated in a systematic way, that allows us to define exactly what information is carried over to where? What would the tool used to do exactly that look like, and how would it work? For example, how would we get the SIS information, which is stored as a CSV file, into the Moodle database?
 
-##SOLUTION
+###SOLUTION
 
 A datastore here is a structure that has symmetrical trees and branches. They are symmetrical in that they hold the same kind of information based on the same model, but with different content. Differences between these two branches represent operations that must take place in order to sync. For example, when a new student arrives, the tree 'csv_tree' will contain information about the new student in the "student" branch, but 'db_tree' will not have that info. When a currently enrolled student changes courses, both contain the student, but has different course information.
 
 Our framework should make this process straight-forward to program such syncing procedures.
 
-##DATASTORE TREES
+###DATASTORE TREES
 
 We don't create the datastore itself, it is a magical structure residing in the background; we just define trees by subclassing from DataStoreTree, thereby inheriting mechanisms that allow us to define our branches and model structure. 
 
@@ -74,7 +74,7 @@ csv_tree.branches   # [dss.branches.students, dss.branches.teachers]
 
 In this way, we have a single object, a magical class in the background which is our "datastore", that has two trees, one for each kind of database we have, each of which has a 'students' and 'teachers' branch. We access them through instances of DataStoreTree.
 
-##DATASTORE MODEL
+###DATASTORE MODEL
 
 The idea is that each of these branches need to hold dictionaries for our model. So how do we define the object that represents these items?
 
@@ -111,7 +111,7 @@ csv_tree.datastore.__tree__
 
 The store magically keeps info with keys like "<treename>.<branchname>". At the branch level, only the keys relevant to that particular branch are accessible with the 'store' method.
 
-##DISCOVERING DIFFERENCES IN THE MODEL
+###DISCOVERING DIFFERENCES IN THE MODEL
 
 The datastore trees mechanism also provides a way to easily detect differences between any two trees. All one has to do is use the minus operator to generate the differences:
 
@@ -131,7 +131,7 @@ So the single point of truth "database" (which for us is just a CSV file) is on 
 
 This mechanism requires to adequately compare properties of objects in the model. When defining the model, for example the "Student" class above, you can overload the subtraction operator, __sub__, if you need more specific behavior, but the default behaviour is to look through each non-callable property and check to see if they are equal. Inequality will result in an action objecting being generated.
 
-##HANDLER TEMPLATES
+###HANDLER TEMPLATES
 
 In order to define what happens when certain differences are detected, we can define templates that are called for each action. To that end, consider this:
 
@@ -175,7 +175,7 @@ csv_tree > db_tree
 
 which simply outputs the found differences in a human-readable format, useful for debugging.
 
-##IMPORTERS
+###IMPORTERS
 
 So how are the datastores populated with information? The programmer can define importer classes whose job it is to call the 'make' method on each relevant branch. The importer is defined on the tree in the same way branches and templates are:
 
@@ -199,7 +199,7 @@ To clear the populated info:
 -csv_tree
 ```
 
-##WRAPPING IT UP
+###WRAPPING IT UP
 
 This following summarizes with code the above:
 
