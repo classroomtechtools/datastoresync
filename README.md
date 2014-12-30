@@ -1,4 +1,9 @@
-PURPOSE
+datastoresync
+=============
+
+This is narrative introduction to the concepts and general practice with this framework. A more comprehensive, code-only introduction can be found in the main_example.py file contained in this repository.
+
+CONTEXT
 =======
 
 You have two databases, maybe one of them is a School Information System, the other is Virtual Learning Environment. You need a framework for syncing those two databases. There's also an LDAP that needs the information as well.
