@@ -15,6 +15,7 @@ class DataStoreTreeMeta(type):
 
     # The store is the actual instances that holds the data
     __store__ = defaultdict(OrderedDict)
+    __storeobjects__ = {}
 
     def __init__(cls, name, bases, attrs):
         # Give each class a reference to myself
@@ -141,9 +142,6 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
     def branch(cls, name):
         return getattr(cls, name)
 
-    def define_action(self, other, attribute, message, error=None):
-        return define_action(self, other, attribute, message, error)
-
     def output(self, other, stream=None):
         if stream is None:
             import sys
@@ -186,6 +184,7 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
         """
 
         # Import information using the defined templates, if any
+        # TODO: Leave out?
         +self
         +other
 
@@ -196,7 +195,9 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
             that_branch = other.branch(branch)
 
             for key in this_branch.keys() - that_branch.keys():
-                yield self.define_action(other, key, "new_{}(idnumber={})".format(branch, key))
+                left = this_branch.get(key)
+                right = that_branch.get(key)
+                yield define_action(left, right, key, "new_{}(idnumber={})".format(branch, key), None)
 
         for branch in self.branch_names:
             this_branch = self.branch(branch)
@@ -213,4 +214,6 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
             that_branch = other.branch(branch)
 
             for key in that_branch.keys() - this_branch.keys():
-                yield self.define_action(other, key, "old_{}(idnumber={})".format(branch, key))
+                left = this_branch.get(key)
+                right = that_branch.get(key)
+                yield define_action(left, right, key, "old_{}(idnumber={})".format(branch, key), None)

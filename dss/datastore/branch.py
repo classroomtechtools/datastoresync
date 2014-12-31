@@ -1,5 +1,6 @@
 from dss.utils import string_to_module_class
 import importlib
+import json
 
 class DataStoreBranchMeta(type):
 	def __init__(cls, name, bases, attrs):
@@ -131,25 +132,46 @@ class DataStoreBranches(metaclass=DataStoreBranchMeta):
 		pass
 
 	@classmethod
-	def make(cls, idnumber, *args, **kwargs):
+	def make(cls, idnumber, **kwargs):
 		"""
 		Returns the object if already created, otherwise makes a new one
 		Can be overridden if desired
 		idnumber should the identifying idnumber, otherwise a callable to derive it
 		"""
+
 		if callable(idnumber):
 			# FIX: Can't remember why I made this!
 			# Nothing seems to use it!
-			idnumber = idnumber(*args, **kwargs)
-		if cls.is_new(idnumber):
+			idnumber = idnumber(**kwargs)
+
+		# First, let's make the object, whereupon we can get the global_idnumber
+		# by calling _get_all_properties which returns an OrderedDcit 
+		# and includes any derived properties
+		new = cls.klass(idnumber, **kwargs)
+		all_properties = new._get_all_properties()
+
+		if hasattr(cls, '__jsonencoder__'):
+			class json_encoder(json.JSONEncoder):
+				def default(self, obj):
+					return cls.__jsonencoder__(obj)
+			global_idnumber = json.dumps( (idnumber, all_properties), cls=json_encoder)
+		else:
+			global_idnumber = json.dumps( (idnumber, all_properties) )
+
+		print(global_idnumber)
+		if not global_idnumber in cls.__datastore__.__storeobjects__:
 			# Instantiate the instance
-			new = cls.klass(idnumber, *args, **kwargs)
-			cls.will_make_new(new, *args, **kwargs)
+			print('new!')
+			cls.__datastore__.__storeobjects__[global_idnumber] = new
+			cls.will_make_new(new, **all_properties)
 			cls.set_key(idnumber, new)
-			cls.did_make_new(new, *args, **kwargs)
+			cls.did_make_new(new, **all_properties)
 			return new
 		else:
-			old = cls.get(idnumber)
-			cls.will_return_old(old, *args, **kwargs)
+			# We'll not use 'new'
+			print('same!')
+			input(new)
+			old = cls.__datastore__.__storeobjects__[global_idnumber]
+			cls.will_return_old(old, **all_properties)
 			return old
 

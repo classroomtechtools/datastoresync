@@ -1,4 +1,4 @@
-debug = True
+debug = False
 
 class DefaultTemplate:
 
@@ -15,8 +15,3 @@ class DefaultTemplate:
 			return
 		func(action)
 
-class CSV(DefaultTemplate):
-	pass
-
-class DB(DefaultTemplate):
-	pass

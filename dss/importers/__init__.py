@@ -3,5 +3,5 @@ class DefaultImporter:
 	def __init__(self, tree):
 		self.tree = tree
 
-	def feed(self):
+	def readin_branch(self, branch):
 		pass
