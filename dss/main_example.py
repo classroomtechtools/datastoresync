@@ -3,7 +3,7 @@ import re
 
 
 
-# MODEL
+# DATA
 
 # First define the basic user properties applicable to all users, we'll implement the kind field as an enum
 
@@ -18,10 +18,13 @@ from dss.models import Base
 
 class BaseUser(Base):
 	"""
-	All the tracked properties should not have an underscore
-	For instance properties should be a @property (can also define class properties)
-	and it is up to the programmer to ensure that they are all used by the importer!
-	Can define derived properties, such as this:
+	All the tracked properties should not begin with an underscore
+	Tracked properties will include those passed to __init__ as kwarg args (as long as they don't begin with underscore)
+
+	Programmer can define properties on the class that are derived from tracked properties
+	If they don't begin with an underscore, they also will be tracked.
+
+	Being "tracked" refers to noticing differences and syncing them across, as defined by the - and >> operators.
 
 	user = BaseUser(firstname='Adam', lastname="Apple")
 	user.name  # "Adam Apple"
@@ -33,14 +36,6 @@ class BaseUser(Base):
 
 	# properties that do not have underscore are also tracked
 	kind = Kind.undefined
-
-	@property
-	def firstname(self):
-		return self._firstname
-
-	@property
-	def lastname(self):
-		return self._lastname
 
 	@property
 	def name(self):
@@ -65,10 +60,6 @@ class BaseStudent(BaseUser):
 		"""
 		return re.sub('[^0-9]', '', self.homeroom)
 
-	@property
-	def homeroom(self):
-		return self._homeroom
-
 	def __repr__(self):
 		return "<Student {}:{}, homeroom {}>".format(self.idnumber, self.name, self.homeroom)
 
@@ -88,7 +79,7 @@ class LeftStudent(BaseStudent):
 	"""
 	@property
 	def username(self):
-		return (self.firstname + self.lastname + self._year_of_graduation()).lower()
+		return (self.firstname + self.lastname + self._year_of_graduation()).lower().replace(' ', '')
 
 	# The following methods are not tracked:
 	def _year_of_graduation(self):
@@ -104,12 +95,7 @@ class LeftStudent(BaseStudent):
 		return 2015
 
 class RightStudent(BaseStudent):
-	@property
-	def username(self):
-		"""
-		The username should already be on the database on the right
-		"""
-		return self._username
+	pass
 
 class LeftTeacher(BaseTeacher):
 	pass
@@ -176,7 +162,7 @@ class RightTeachers(RightBranches, TeacherBranch):
 # IMPORTERS
 
 # Our case is simple, we'll just make them programmatically
-# Importers are responsible for calling the branch's make method
+# Importers are responsible for yielding a dictionary of the information
 
 from dss.importers import DefaultImporter
 
@@ -184,25 +170,34 @@ class LeftImporter(DefaultImporter):
 
 	def readin_branch(self, branch):
 		if branch.name() == 'students':
-			branch.make('newstudent', firstname='Joe', lastname='Shmoe', homeroom='5A')
-			branch.make('12345', firstname='Flow', lastname='Maiden', homeroom='10B')
-			branch.make('67890', firstname='Apple', lastname='Daily', homeroom='2M')
+			yield dict(idnumber='newstudent', firstname='Joe', lastname='Shmoe', homeroom='5A')
+			yield dict(idnumber='12345', firstname='Flow', lastname='Maiden', homeroom='10B')
+			yield dict(idnumber='67890', firstname='Apple', lastname='Daily', homeroom='2M')
 		elif branch.name() == 'teachers':
-			branch.make('newteacher', firstname='Fred', lastname='Maiden')
-			branch.make('1111', firstname='Pretty', lastname='in Pink')
-			branch.make('2222', firstname='Joeanne', lastname='Shmoe')
+			yield dict(idnumber='newteacher', firstname='Fred', lastname='Maiden')
+			yield dict(idnumber='1111', firstname='Pretty', lastname='in Pink')
+			yield dict(idnumber='2222', firstname='Joeanne', lastname='Shmoe')
 
 class RightImporter(DefaultImporter):
 
+	def filter_out(self, **info):
+		"""
+		You can define a function that inspects the information looking for stuff to filter out
+		"""
+		if info.get('idnumber') == '0000':
+			return True
+		return False
+
 	def readin_branch(self, branch):
 		if branch.name() == 'students':
-			branch.make('12345', firstname='Flow', lastname='Maiden', homeroom='10B', username="wrong")
-			branch.make('67890', firstname='Apple', lastname='Daily', homeroom='2M', username="appledaily20")
-			branch.make('oldstudent', firstname='Goodbye', lastname="Everyone", homeroom="1A", username="goodbyeeveryone16")
+			yield dict(idnumber='12345', firstname="Flow", lastname='Maiden', homeroom='10B', username="wrong")
+			yield dict(idnumber='67890', firstname='Apple', lastname='Daisy', homeroom='2M', username="appledaily20")
+			yield dict(idnumber='oldstudent', firstname="Goodbye", lastname="Everyone", homeroom="1A", username="goodbyeeveryone16")
 		elif branch.name() == 'teachers':
-			branch.make('1111', firstname='Pretty', lastname='in Pink')
-			branch.make('2222', firstname='Joeanne', lastname='Shmoe')
-			branch.make('oldteacher', firstname='No', lastname="yes")
+			yield dict(idnumber='0000', firstname="Teacher", lastname="Filtered Out")
+			yield dict(idnumber='1111', firstname="Pretty", lastname="in Pink")
+			yield dict(idnumber='2222', firstname="Joeanne", lastname="Smith")
+			yield dict(idnumber='oldteacher', firstname="no", lastname="yes")
 
 # Now define the templates
 

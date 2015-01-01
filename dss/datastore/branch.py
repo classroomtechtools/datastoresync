@@ -147,6 +147,7 @@ class DataStoreBranches(metaclass=DataStoreBranchMeta):
 		# First, let's make the object, whereupon we can get the global_idnumber
 		# by calling _get_all_properties which returns an OrderedDcit 
 		# and includes any derived properties
+
 		new = cls.klass(idnumber, **kwargs)
 		all_properties = new._get_all_properties()
 
@@ -158,10 +159,8 @@ class DataStoreBranches(metaclass=DataStoreBranchMeta):
 		else:
 			global_idnumber = json.dumps( (idnumber, all_properties) )
 
-		print(global_idnumber)
 		if not global_idnumber in cls.__datastore__.__storeobjects__:
 			# Instantiate the instance
-			print('new!')
 			cls.__datastore__.__storeobjects__[global_idnumber] = new
 			cls.will_make_new(new, **all_properties)
 			cls.set_key(idnumber, new)
@@ -169,8 +168,6 @@ class DataStoreBranches(metaclass=DataStoreBranchMeta):
 			return new
 		else:
 			# We'll not use 'new'
-			print('same!')
-			input(new)
 			old = cls.__datastore__.__storeobjects__[global_idnumber]
 			cls.will_return_old(old, **all_properties)
 			return old

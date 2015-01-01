@@ -170,8 +170,14 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
         """
         template = getattr(self, '__importer__', None)
         template_inst = template(self)
+        has_template_filter = getattr(template_inst, 'filter_out', False)
         for branch in self.branches:
-            template_inst.readin_branch(branch)
+            for info in template_inst.readin_branch(branch):
+                if has_template_filter:
+                    if not template_inst.filter_out(**info):
+                        branch.make(**info)
+                else:
+                    branch.make(**info)
 
     def __neg__(self):
         for key in self.branch_names():

@@ -177,7 +177,7 @@ which simply outputs the found differences in a human-readable format, useful fo
 
 ###IMPORTERS
 
-So how are the datastores populated with information? The programmer can define importer classes whose job it is to call the 'make' method on each relevant branch. The importer is defined on the tree in the same way branches and templates are:
+So how are the datastores populated with information? The programmer can define importer classes whose job it is yield back the information on each relevant branch. The importer is defined on the tree in the same way branches and templates are:
 
 ```python
 class CSVDataStores(DataStoreTree):

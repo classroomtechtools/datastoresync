@@ -10,7 +10,10 @@ class Base:
 	def __init__(self, idnumber, **kwargs):
 		self.idnumber = idnumber
 		for key in kwargs:
-			setattr(self, '_'+ key, kwargs[key])
+			setattr(self, key, kwargs[key])
+
+	def __getattr__(self, key):
+		return getattr(self, '_'+key)
 
 	def _get_all_properties(self):
 		ret = OrderedDict()

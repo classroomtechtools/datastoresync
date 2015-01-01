@@ -1,3 +1,4 @@
+
 class DefaultImporter:
 
 	def __init__(self, tree):
