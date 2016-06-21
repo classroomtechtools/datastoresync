@@ -1,8 +1,5 @@
 import re
 
-
-
-
 # DATA
 
 # First define the basic user properties applicable to all users, we'll implement the kind field as an enum
@@ -48,7 +45,7 @@ class BaseUser(Base):
 class BaseStudent(BaseUser):
 	"""
 	Every Student has a homeroom, and we decide instead of getting the grade from the information system, 
-	toderive the grade from the homeroom...
+	to derive the grade from the homeroom...
 	...this decision will cause a bug if there are any student who doesn't have a homeroom but does have a grade
 	"""
 	kind = Kind.student
@@ -61,7 +58,7 @@ class BaseStudent(BaseUser):
 		return re.sub('[^0-9]', '', self.homeroom)
 
 	def __repr__(self):
-		return "<Student {}:{}, homeroom {}>".format(self.idnumber, self.name, self.homeroom)
+		return "<Student {}:{}, homeroom {} at {}>".format(self.idnumber, self.name, self.homeroom, hex(id(self)))
 
 class BaseTeacher(BaseUser):
 	kind = Kind.teacher
@@ -92,7 +89,7 @@ class LeftStudent(BaseStudent):
 	def _this_year(self):
 		# Very rudimentary, better to use calendar to check the current year
 		# But reminds us that an underscore is needed here because this isn't information we are tracking
-		return 2015
+		return 2016
 
 class RightStudent(BaseStudent):
 	pass
@@ -172,7 +169,7 @@ class LeftImporter(DefaultImporter):
 		if branch.name() == 'students':
 			yield dict(idnumber='newstudent', firstname='Joe', lastname='Shmoe', homeroom='5A')
 			yield dict(idnumber='12345', firstname='Flow', lastname='Maiden', homeroom='10B')
-			yield dict(idnumber='67890', firstname='Apple', lastname='Daily', homeroom='2M')
+			yield dict(idnumber='67890', firstname='Apple', lastname='Daisy', homeroom='2M')
 		elif branch.name() == 'teachers':
 			yield dict(idnumber='newteacher', firstname='Fred', lastname='Maiden')
 			yield dict(idnumber='1111', firstname='Pretty', lastname='in Pink')
@@ -191,12 +188,12 @@ class RightImporter(DefaultImporter):
 	def readin_branch(self, branch):
 		if branch.name() == 'students':
 			yield dict(idnumber='12345', firstname="Flow", lastname='Maiden', homeroom='10B', username="wrong")
-			yield dict(idnumber='67890', firstname='Apple', lastname='Daisy', homeroom='2M', username="appledaily20")
+			yield dict(idnumber='67890', firstname='Apple', lastname='Daisy', homeroom='2M', username="appledaisy20")
 			yield dict(idnumber='oldstudent', firstname="Goodbye", lastname="Everyone", homeroom="1A", username="goodbyeeveryone16")
 		elif branch.name() == 'teachers':
 			yield dict(idnumber='0000', firstname="Teacher", lastname="Filtered Out")
 			yield dict(idnumber='1111', firstname="Pretty", lastname="in Pink")
-			yield dict(idnumber='2222', firstname="Joeanne", lastname="Smith")
+			yield dict(idnumber='2222', firstname="Joeanne", lastname="Shmoe")
 			yield dict(idnumber='oldteacher', firstname="no", lastname="yes")
 
 # Now define the templates
@@ -241,8 +238,6 @@ class RightTree(DataStoreTree):
 	__importer__ = '__main__/RightImporter'
 	__template__ = '__main__/RightTemplate'
 
-
-
 if __name__ == "__main__":
 	# ROCK N ROLL
 
@@ -250,6 +245,11 @@ if __name__ == "__main__":
 	#Sets up all the magic, will automatically import the data (if an importer is defined)
 	left = LeftTree()
 	right = RightTree()
+
+	+left
+	+right
+
+	left > right
 
 	#Syncs by finding the differences, and then calling the template
 	left >> right
