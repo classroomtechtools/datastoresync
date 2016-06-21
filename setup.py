@@ -7,7 +7,7 @@ setup(
     author = "Adam Morris",
     author_email = "amorris@mistermorris.com",
     #keywords = ["moodle"],
-    #install_requires = ['click', 'pexpect', 'sqlalchemy', 'psycopg2'],
+    #install_requires = [],
     classifiers = [
         "Programming Language :: Python :: 3",
         "Development Status :: 4 - Beta",
