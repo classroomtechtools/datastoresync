@@ -191,8 +191,8 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
 
         # Import information using the defined templates, if any
         # TODO: Leave out?
-        +self
-        +other
+        # +self
+        # +other
 
         # Here is where the wheel turns
 
@@ -213,7 +213,14 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
                 this_item = this_branch.get(item_key)
                 that_item = that_branch.get(item_key)
 
-                yield from this_item - that_item
+                if this_item and that_item and this_item is that_item:
+                    # The objects on both sides are one and the same (and not None)
+                    # because the datastore only creates significant unique items once
+                    # so it's guaranteed that there are no differences to explore, therefore, short circuit any comparisons
+                    continue
+                else:
+                    # Have the objects themselves compare to each other
+                    yield from this_item - that_item
 
         for branch in self.branch_names:
             this_branch = self.branch(branch)

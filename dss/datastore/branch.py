@@ -169,6 +169,7 @@ class DataStoreBranches(metaclass=DataStoreBranchMeta):
 		else:
 			# We'll not use 'new'
 			old = cls.__datastore__.__storeobjects__[global_idnumber]
+			cls.set_key(idnumber, old)
 			cls.will_return_old(old, **all_properties)
 			return old
 
