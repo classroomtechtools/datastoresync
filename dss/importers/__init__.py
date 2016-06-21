@@ -1,8 +1,2 @@
-
-class DefaultImporter:
-
-	def __init__(self, tree):
-		self.tree = tree
-
-	def readin_branch(self, branch):
-		pass
+from dss.importers.default_importer import DefaultImporter
+__all__ = [DefaultImporter]
