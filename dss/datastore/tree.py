@@ -1,121 +1,140 @@
 """
 Defines DataStoreTree mechanism for core functionality of datastoresync
+It is responsible for keeping the store
 """
-
 
 import inspect, sys
 from collections import defaultdict, OrderedDict
 import importlib
 import logging
-from dss.utils import string_to_module_class, define_action
+from dss.utils import split_import_specifier, define_action
 log = logging.getLogger(__name__)
 import re
+import os, pickle
+
+verbose = False
 
 class DataStoreTreeMeta(type):
 
     # The store is the actual instances that holds the data
-    __store__ = defaultdict(OrderedDict)
-    __storeobjects__ = {}
+    _store = defaultdict(OrderedDict)
+
+    # A single place for the 
+    _storeobjects = {}
 
     def __init__(cls, name, bases, attrs):
-        # Give each class a reference to myself
-        cls.__datastore__ = cls.__class__
+        """
+        Augments the tree to have branches
+        """
+        # Give each class a reference to me
+        # which makes this metaclass a kind of singleton, only one of them per application
+        # And thus the objects are actually stored in this metaclass, but made available in the trees and branches
+        cls._metastore = cls.__class__
 
-        branches = attrs.get('__branches__')
+        branches = attrs.get('_branches')
+        verbose and print("branches in {} started off as {}...".format(cls.__name__, branches))
         if branches:
-            # Adjust the branches attribute from string(s) to a tuple
-            # with the module and the class inside the module
-            change_to = []
+            # Migrate the _branches attribute from string to a tuple:
+            # (module, class)
+            migrate_to = []
             if not isinstance(branches, list):
                 branches = [branches]
             for branch in branches:
-                module_to_import, class_to_import = string_to_module_class(branch)
+                # At this point, branch is a string,
+                # split it into the module to be imported, and the class in that imported module
+                module_to_import, class_to_import = split_import_specifier(branch)
                 mod = importlib.import_module(module_to_import)
                 clss = getattr(mod, class_to_import)
-                clss.__datastore__ = cls.__class__
-                change_to.append( (mod, clss) )
-            cls.__branches__ = change_to
-            
 
-            # Cycle through all the classes that have been declared in this module, so we can augment this class with those ones
-            # Limitation: You have to declare your branches in the same place as this module
-            # TODO: Get around above limitation by passing a string and importing that way
+                # Provide references to the class, and append
+                clss._datastore = cls.__class__
+                migrate_to.append( (mod, clss) )
 
-            for mod, clss in cls.__branches__:
+            # Make the change
+            cls._branches = migrate_to
+            verbose and print("\t....changed to {}".format([(m.__name__, c.__name__) for m, c in migrate_to]))
+
+            # Now that we have the raw information, we can go about making our branches,
+            # Which we do by picking up subclasses of the classes that the developer indicated
+
+            # Cycle through all the classes that have been declared in this module, so we can augment
+            # LIMITATION: Classes have to be declared in the same module as the string name
+            for mod, clss in cls._branches:
                 get_all_module_classes = inspect.getmembers(mod, inspect.isclass)
-
                 # Now go through all classes in this particular module
                 for class_name, class_reference in get_all_module_classes:
-                    branch_name = getattr(class_reference, '__branchname__', class_reference.__name__)
+                    branch_name = getattr(class_reference, '_branchname', class_reference.__name__)
 
-                    # if class_name in attrs.keys():   # ensure something with same name wasn't passed to attrs
-                    #     print('in attrs keys')
-                    #     declared_class = attrs[class_name]  # this is now whatever the programmer declared
-                    #     if inspect.isclass(declared_class) and issubclass(declared_class, clss):
-                    #         # If we're here, we need to adjust some augment, to match what we would do automatically (like below)
-                    #         setattr(declared_class, '__qualname__', branch_name)
-                    #         setattr(declared_class, '__datastore__', cls)
                     if class_reference is not clss:  # check to ensure our heuristic doesn't detect itself
                         if issubclass(class_reference, clss): # now see if this object is subclass of class represented by `pickup`
-                            class_reference.__treename__ = cls.__name__
-                            class_reference.__qualname__ = branch_name
+                            class_reference._treename = cls.__name__
+                            class_reference._tree = cls
+                            class_reference._qualname = branch_name
                             setattr(cls, branch_name, class_reference)
+                            verbose and print("Setting attribute {} on {} to {}".format(branch_name, cls.__name__, class_reference.__name__))
+                        else:
+                            pass
                     else:
-                        pass # ?
-
+                        # detected itself, which will happen once per each branch
+                        # this is by design incorrect, because branch classes are declared and then subclasses are picked up
+                        pass
+        # THIS IS NEW
+        super().__init__(name, bases, attrs)
 
 class DataStoreTree(metaclass=DataStoreTreeMeta):
 
-    def __init__(self, do_import=False):
-        # Must follow the convention of lowercase representing modules
-        # and Uppercase representing actual classes 
+    def __init__(self, do_import=False, read_from_disk=None, write_to_disk=None, filter_=None):
+        """
+        Detects the sets up the declared template
+        """
+        if hasattr(self, '_template'):
+            self.set_template(self._template)
 
-        if hasattr(self, '__importer__'):
-            # Re-assign the string in klass to the actual class
-            # Imports the module on the way, which is used in __init__
-            mod_name, clss = string_to_module_class(self.__importer__)
-            module = importlib.import_module(mod_name)
-            self.__importer__ = getattr(module, clss)
+        # if do_import:
+        #     +self
 
-        if hasattr(self, '__template__'):
-            mod_name, clss = string_to_module_class(self.__template__)
-            module = importlib.import_module(mod_name)
-            self.__template__ = getattr(module, clss)
-
-        if do_import:
-            +self
+        self.read_from_disk = read_from_disk
+        self.write_to_disk = write_to_disk
+        self.set_filter(filter_)
 
         return super().__init__()
 
     def __repr__(self):
-        return "<{} tree of datastore, with {} branches>".format(self.__class__.__name__, len(self.branches))
+        return "<Datastore Tree '{}', with {} branches: [{}]>".format(self.__class__.__name__, len(self.branches), ",".join(b.name for b in self.branches))
 
-    # @property
-    # def trees(self):
-    #     """
-    #     Returns the branches in this store collection, defined as any objects in the __dict__ that are classes
-    #     """
-    #     return [t for t in self.store.keys() if c == c.lstrip('_') and isinstance(self.__dict__[c], type)]
+    def set_filter(self, filter_):
+        """
+        filter_ should be a dict
+        """
+        self._filter = filter_
 
-    # @classmethod
-    # def tree_names(cls):
-    #     return [c.__name__ for c in cls.trees()]
+    def set_template(self, template_import_specifier):
+        """
+        Converts the template_import_specifier into the class
+        (it is initialized lazily)
+        """
+        mod_name, clss = split_import_specifier(template_import_specifier)
+        module = importlib.import_module(mod_name)
+        self._template = getattr(module, clss)
 
     @property
-    def datastore(self):
-        return self.__class__.__datastore__
+    def metastore(self):
+        return self.__class__._metastore
 
     @classmethod
     def branch_classes(cls):
-        return [b[1] for b in cls.__branches__]
+        return [b[1] for b in cls._branches]
 
     @property
     def branches(self):
+        """
+        Returns list of branch objects
+        """
         ret = []
         # Loop through anything that might be a branch...
         # We're using dir(), so have to filter out 'branches' and 'store' properies to avoid infinite recursion
         # TODO: Better is to filter out any properties and just look at classes
-        for attr in [a for a in dir(self) if a == a.lstrip('_') and not a.startswith('branch') and not a.startswith('store')]:
+        for attr in [a for a in dir(self) if a == a.lstrip('_') and not a.startswith('branch') and not a.startswith('store') and not a in self.exclude]:
             attribute = getattr(self, attr)
             for branch_class in self.branch_classes():
                 try:
@@ -123,24 +142,32 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
                         ret.append(attribute)
                 except TypeError:
                     # TypeError raised when issubclass is passed a non-class obj in the first argument
+                    # TODO: When debugging, this is annoying
                     pass
         return ret
 
     @property
     def branch_fullnames(self):
-        return [s.fullname() for s in self.branches]
+        return [s.fullname for s in self.branches]
 
     @property
     def branch_names(self):
-        return [s.name() for s in self.branches]
+        return [s.name for s in self.branches]
 
     @property
     def store(self):
-        return {k: v for k, v in self.__class__.__datastore__.__store__.items() if k in self.branch_fullnames}
+        return {k: v for k, v in self.__class__._metastore._store.items() if k in self.branch_fullnames}
+
+    @property
+    def datastore(self):
+        return self.__class__._metastore._store
 
     @classmethod
     def branch(cls, name):
-        return getattr(cls, name)
+        """
+        Take a name string and convert it to the branch
+        """
+        return getattr(cls, name, None)
 
     def output(self, other, stream=None):
         if stream is None:
@@ -150,43 +177,173 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
 
     def wheel(self, other, template=None):
         if template is None:
-            template = self.__template__
+            template = self._template
 
         for action in self - other:
             template(action)
 
-    def __rshift__(self, other):   # >>
-        template = other.__template__()
-
+    def test_model(self, other):
+        #self.set_template('dss.templates.DefaultTemplate')
         for action in self - other:
-            template(action)        
+            if action.error:
+                print(action.message)
+        print("test of model is complete. no news is good news.")
+
+    exclude = ['output', 'wheel', 'exclude']
+
+    def __rshift__(self, other):   # >>
+        if not hasattr(other, '_template'):
+            print("No template defined for me")
+            return
+        template = other._template()
+
+        not_implemented = set()
+        for action in self - other:
+            if other._filter and len([1 for k in other._filter.keys() if getattr(action, k) == other._filter[k]]) == len(list(other._filter.keys())):
+                result = template(action)
+            else:
+                result = template(action)
+            if result is None:
+                not_implemented.add(action.func_name)
+            elif result['result'] is True:
+                print('Success: {}'.format(action.message))
+            else:
+                print('FAIL: {} ::: {}'.format(action.message, result['message']))
+        print("Not implemented:\n{}".format(", ".join(list(not_implemented))))
+
 
     def __gt__(self, other):   # >
         self.wheel(other, template=lambda action: print(action.message))
 
-    def __pos__(self):
+    def __pos__(self):         # +
         """
-        User the defined importer template and run it
+        Cycles through the branches, discovering importers as we go:
+        Importers are used to read in the data, and also provides optional hooks
+        such as 'filter_out'
         """
-        template = getattr(self, '__importer__', None)
-        template_inst = template(self)
-        has_template_filter = getattr(template_inst, 'filter_out', False)
-        for branch in self.branches:
-            for info in template_inst.readin_branch(branch):
-                if has_template_filter:
-                    if not template_inst.filter_out(**info):
-                        branch.make(**info)
-                else:
-                    branch.make(**info)
+        if self.read_from_disk:
+            # We can check to see if it has already been in by looking at the keys
+            if len(list(self.__class__._metastore._store.keys())) == 0:
+                self.__class__._metastore._store = pickle.load(self.read_from_disk)
+            else:
+                pass # already read in, no need, and results in segment fault if attempted again
+            return
+
+        # Sort by order in order to ensure properties can be brought in
+        branches = self.branches[:]
+        branches = [b for b in branches if b.fullname.startswith(self.__class__.__name__)]
+        branches.sort(key=lambda o: o.order)
+        #
+
+        for branch in branches:
+            importer_string = getattr(branch, '_importer', None)
+            verbose and print('Declared importer for {} branch of {} is "{}"'.format(branch.fullname, self.__class__.__name__, importer_string))
+            if importer_string is None:
+                # ensure we don't fail if there is no importer defined, just print a message for the moment
+                print('No importer?')
+                return
+            importer_mod_string, class_string = split_import_specifier(importer_string)
+            importer_mod = importlib.import_module(importer_mod_string)
+            importer = getattr(importer_mod, class_string, None)
+            if not importer:
+                print("Importing defined by {} could not be imported".format(importer_string))
+                Returns
+            importer_inst = importer(self, branch)
+            verbose and print("Importer instance for {} branch of {}: {}...".format(branch.fullname, self.__class__.__name__, importer_inst._branch.fullname))
+            importer_inst._branchname = branch._branchname
+            importer_filter = getattr(importer_inst, 'filter_out', None)
+            kwargs_preprocessor = getattr(importer_inst, 'kwargs_preprocessor', None)
+            verbose and importer_filter and print("Detected importer filter")
+            verbose and kwargs_preprocessor and print("Detected kwargs preprocessor")
+
+            # Readin from the importer, and 'make' the data objects as we go
+            # the built-in make method is smart about storing things correctly
+
+            reader = importer_inst.reader
+            temp = defaultdict(list)
+
+            if reader is None:
+                verbose and print("\t...No context manager, using generator instead")
+                i = 0
+
+                for kwargs_in in importer_inst.readin():
+                    if kwargs_preprocessor:
+                        kwargs = kwargs_preprocessor(kwargs_in)
+                    else:
+                        kwargs = kwargs_in
+
+                    has_list_value = len([1 for k in kwargs.keys() if isinstance(kwargs[k], (list,set))]) > 0
+                    if not 'idnumber' in kwargs:
+                        kwargs['idnumber'] = str(i)
+                        i += 1
+                    if has_list_value:
+                        temp[kwargs['idnumber']].append(kwargs)
+                    else:
+                        self.make_them(branch, importer_filter, **kwargs)
+            else:
+                verbose and print("\t...Using context manager")
+                with importer_inst.reader() as reader:
+                    i = 0
+                    for kwargs_in in reader:
+                        if kwargs_preprocessor:
+                            kwargs = kwargs_preprocessor(kwargs_in)
+                        else:
+                            kwargs = kwargs_in
+                        has_list_value = len([1 for k in kwargs.keys() if isinstance(kwargs[k], (list,set))]) > 0
+                        if not 'idnumber' in kwargs:
+                            kwargs['idnumber'] = i
+                            i += 1
+                        if has_list_value:
+                            temp[kwargs['idnumber']].append(kwargs)
+                        else:
+                            self.make_them(branch, importer_filter, **kwargs)
+
+            if len(temp.keys()) > 0:
+                for idnumber in temp.keys():
+                    prepared = {}
+                    kwargs_list = temp[idnumber]
+                    for item in kwargs_list:
+                        for list_key in [k for k in item.keys() if isinstance(item[k], list)]:
+                            if list_key not in prepared:
+                                prepared[list_key] = []
+                            prepared[list_key].extend(item[list_key])
+                            del item[list_key]
+                        for set_key in [k for k in item.keys() if isinstance(item[k], set)]:
+                            if set_key not in prepared:
+                                prepared[set_key] = set()
+                            prepared[set_key].update(item[set_key])
+                            del item[set_key]
+ 
+                        prepared.update(item)
+
+                        self.make_them(branch, importer_filter, **prepared)
+
+    def make_them(self, branch, filter_callable, **kwargs):
+        # Remove any kwargs and leave only those static ones
+
+        if filter_callable is not None:
+            if not filter_callable(**kwargs):
+                obj = branch.make(**kwargs)
+        else:
+            obj = branch.make(**kwargs)
+
+        # # Now augment these objects with _underline properties passed in kwargs
+        # for key,value in list_kwargs.items():
+        #     if not hasattr(obj, key):
+        #         setattr(obj, key, [])
+        #     getattr(obj, key).extend(value)
 
     def __neg__(self):
-        for key in self.branch_names():
-            if key in self.__datastore__.__store__:
-                del self.__datastore__.__store__[key]            
+        """
+        Removes the branches from the store
+        """
+        for branch in self.branches:
+            key = branch.fullname
+            del self._datastore._store[key]
 
     def __sub__(self, other):
         """
-        Executes the syncing operations
+        Mimicks syncing, yields objects
         """
 
         # Import information using the defined templates, if any
@@ -194,18 +351,23 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
         # +self
         # +other
 
-        # Here is where the wheel turns
+        branches = [b for b in self.branch_names if not b.startswith('_')]
 
-        for branch in self.branch_names:
+        # filter out any branches that have been augmented to skip
+        branches = [b for b in branches if not (hasattr(self.branch(b), '_sub') and not self.branch(b)._sub)]
+        branches.sort(key=lambda b: self.branch(b).order)
+        #
+
+        for branch in branches:
             this_branch = self.branch(branch)
             that_branch = other.branch(branch)
 
             for key in this_branch.keys() - that_branch.keys():
                 left = this_branch.get(key)
                 right = that_branch.get(key)
-                yield define_action(left, right, key, "new_{}(idnumber={})".format(branch, key), None)
+                yield define_action(key, left, right, 'idnumber', "new_{}(idnumber={})".format(branch, key), None)
 
-        for branch in self.branch_names:
+        for branch in branches:
             this_branch = self.branch(branch)
             that_branch = other.branch(branch)
 
@@ -222,11 +384,11 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
                     # Have the objects themselves compare to each other
                     yield from this_item - that_item
 
-        for branch in self.branch_names:
+        for branch in branches:
             this_branch = self.branch(branch)
             that_branch = other.branch(branch)
 
             for key in that_branch.keys() - this_branch.keys():
                 left = this_branch.get(key)
                 right = that_branch.get(key)
-                yield define_action(left, right, key, "old_{}(idnumber={})".format(branch, key), None)
+                yield define_action(key, left, right, key, "old_{}(idnumber={})".format(branch, key), None)

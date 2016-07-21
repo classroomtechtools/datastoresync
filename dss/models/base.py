@@ -1,63 +1,117 @@
+
 from dss.utils import define_action
 from collections import OrderedDict
+import json
 
 class Base:
-	"""
-	REMIND: Everything defined here has to begin (or end) with an underscore to avoid collisions in the framework.
-	"""
+    """
+    REMIND: Everything defined here has to begin (or end) with an underscore to avoid collisions in the framework.
+    """
 
-	# Classes in the model need to have idnumber for syncing to be meaningful
-	def __init__(self, idnumber, **kwargs):
-		self.idnumber = idnumber
-		for key in kwargs:
-			setattr(self, key, kwargs[key])
+    # Classes in the model need to have idnumber for syncing to be meaningful
+    def __init__(self, idnumber, **kwargs):
+        self.idnumber = idnumber
+        for key in kwargs:
+            try:
+                setattr(self, key, kwargs[key])
+            except AttributeError:
+                print("Cannot set {} {}".format(key, self))  # should be a log instead of a print
 
-	def __getattr__(self, key):
-		return getattr(self, '_'+key)
+    def _derive_global_idnumber(self):
+        all_properties = self._get_all_properties()
 
-	def _get_all_properties(self):
-		ret = OrderedDict()
-		for key in [k for k in sorted(dir(self)) if k == k.strip('_')]:
-			ret[key] = getattr(self, key)
-		return ret
+        if hasattr(self, '_jsonencoder'):
+            this = self
+            class json_encoder(json.JSONEncoder):
+                def default(self, obj):
+                    return this._jsonencoder(obj)
+            global_idnumber = json.dumps( (self.idnumber, all_properties), cls=json_encoder)
+        else:
+            global_idnumber = json.dumps( (self.idnumber, all_properties) )
 
-	def _define_action(self, other, attribute, message, error=None):
-		return define_action(self, other, attribute, message, error)
+        return global_idnumber
 
-	def __sub__(self, other):
-		"""
-		Go through each variable/property that isn't a callable and check them out
-		"""
+    def _get_all_properties(self):
+        ret = OrderedDict()
+        for key in [k for k in sorted(dir(self)) if k == k.strip('_')]:
+            ret[key] = getattr(self, key)
+        return ret
 
-		# Limitation: We don't process (yet?) for exact equivalencies across both objects
-		#             So you could have something defined as 'x' as a callable on this side
-		#             but as a callable on other side, and you won't pick up any changes.
+    def _get_from_branch_attr(self, specifier):
+        branch, attr = specifier.split('/')
+        b = getattr(self._tree, branch)
+        a = getattr(self, attr)
+        if b is None:
+            raise AttributeError("{} doesn't have {} branch".format(self, branch))
+        return b.get(a)
 
-		if not other:
-			# This will be picked up in the key comparisons, so skip it
-			return
+    def _get_from_branch_attrs(self, *specifiers):
+        l = []
+        for spec in specifiers:
+            branch, attr = spec.split('/')
+            b = getattr(self._tree, branch)
+            a = getattr(self, attr)
+            if b is None:
+                raise AttributeError("{} doesn't have {} branch".format(self, branch))
+            l.append( b.get(a) )
+        return l
 
-		for attribute in [a for a in dir(self) if a == a.lstrip('_') and not callable(getattr(self, a))]:
-			try:
-				this_attr = getattr(self, attribute)
-			except AttributeError:
-				yield self._define_action(other, attribute, "err_no_attr(attribute={},which='left')".format(attribute))
-				continue
-			try:
-				that_attr = getattr(other, attribute)
-			except AttributeError:
-				yield self._define_action(other, attribute, "err_no_attr(attribute={},which='right')".format(attribute))
-				continue
+    def __sub__(self, other):
+        """
+        Go through each variable/property that isn't a callable and check them out
+        """
 
-			if this_attr != that_attr:
-				yield self._define_action(other, attribute, "different_{}(idnumber={}, left_value={}, right_value={})".format(attribute, self.idnumber, getattr(other, attribute), getattr(self, attribute)))
+        # Limitation: We don't process (yet?) for exact equivalencies across both objects
+        #             So you could have something defined as 'x' as a callable on this side
+        #             but as a callable on other side, and you won't pick up any changes.
+
+        if not other:
+            # This will be picked up in the key comparisons, so skip it
+            return
+
+        for attribute in [a for a in dir(self) if a == a.lstrip('_') and not callable(getattr(self, a))]:
+            try:
+                this_attr = getattr(self, attribute)
+            except AttributeError:
+                yield define_action(self.idnumber, self, other, attribute, "err_no_attr(idnumber={},attribute={}, which='{}.{}')".format(self.idnumber, attribute, self._origtreename, self._branchname), True)
+                continue
+            try:
+                that_attr = getattr(other, attribute)
+            except AttributeError:
+                yield define_action(self.idnumber, self, other, attribute, "err_no_attr(idnumber={}, attribute={}, which='{}.{}')".format(self.idnumber, attribute, other._origtreename, self._branchname), True)
+                continue
+
+            if type(this_attr) != type(that_attr):
+                yield define_action(self.idnumber, self, other, attribute, "err_integrity(attribute={}, left_type='{}', right_type='{}', which='{}.{}')".format(attribute, type(this_attr), type(that_attr), self._origtreename, self._branchname), True)
+
+            if isinstance(this_attr, list):  # both are lists
+                for to_add in set(this_attr) - set(that_attr):
+                    yield define_action(other.idnumber, self, other, to_add, "add_{attribute}_to_{branch}(idnumber={idnumber}, to={to_}, attribute={attribute}, which='{which}')".format(idnumber=other.idnumber, attribute=attribute, to_=to_add, branch=other._branchname, which='{}.{}'.format(other._origtreename, other._branchname)), None)
+                for to_remove in set(that_attr) - set(this_attr):
+                    yield define_action(other.idnumber, self, other, to_remove, "remove_{attribute}_from_{branch}(idnumber={idnumber}, to={to_}, attribute={attribute}, which='{which}')".format(idnumber=other.idnumber, attribute=attribute, to_=to_remove, branch=other._branchname, which='{}.{}'.format(self._origtreename, self._branchname)), None)
+
+            elif isinstance(this_attr, set):  # both are sets                
+                for to_add in this_attr - that_attr:
+                    yield define_action(other.idnumber, self, other, to_add, "add_{attribute}_to_{branch}(idnumber={idnumber}, to={to_}, attribute={attribute}, which='{which}')".format(idnumber=other.idnumber, attribute=attribute, to_=to_add, branch=other._branchname, which='{}.{}'.format(other._origtreename, other._branchname)), None)
+                for to_remove in that_attr - this_attr:
+                    yield define_action(other.idnumber, self, other, to_remove, "remove_{attribute}_from_{branch}(idnumber={idnumber}, to={to_}, attribute={attribute}, which='{which}')".format(idnumber=other.idnumber, attribute=attribute, to_=to_remove, branch=other._branchname, which='{}.{}'.format(self._origtreename, self._branchname)), None)
+
+            elif this_attr != that_attr:
+                yield define_action(self.idnumber, self, other, this_attr, "update_{}(idnumber={}, left_value={}, right_value={})".format(attribute, self.idnumber, getattr(self, attribute), getattr(other, attribute)), None)
+
+    def __repr__(self):
+        """
+        Only output fields that are guaranteed to be there to avoid attribute errors
+        Outputs the branchname because classname would be ambiguous
+        """
+        return "<{}: {}>".format(self._branchname, self.idnumber)
 
 if __name__ == "__main__":
 
-	b = Base('1234')
-	b.test = 4
-	c = Base('5678')
-	c.test = 5
+    b = Base('1234')
+    b.test = 4
+    c = Base('5678')
+    c.test = 5
 
-	for item in b - c:
-		print(item.message)  # prints out "different_attr (idnumber) @1234: 1234 != 5678\ndifferent_attr (test) @1234: 4 != 5"
+    for item in b - c:
+        print(item.message)  # prints out "different_attr (idnumber) @1234: 1234 != 5678\ndifferent_attr (test) @1234: 4 != 5"

@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
     name = "datastoresync",
     packages = ['dss'],
-    version = "1.0",
+    version = "1.1",
     description = "Framework for defining syncing operations for databases",
     author = "Adam Morris",
     author_email = "amorris@mistermorris.com",

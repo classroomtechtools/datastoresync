@@ -1,13 +1,15 @@
 import re, importlib
 from collections import namedtuple
 
-ActionItem = namedtuple("ActionItem", ['left', 'right', 'attribute', 'message', 'error'])
+ActionItem = namedtuple("ActionItem", ['idnumber', 'left', 'right', 'attribute', 'message', 'func_name', 'error'])
 
-def define_action(left, right, attribute, message, error):
-	return ActionItem(left, right, attribute, message, error)
+def define_action(idnumber, left, right, attribute, message, error):
+    func_name = message[:message.index('(')]
+    return ActionItem(idnumber, left, right, attribute, message, func_name, error)
 
-def string_to_module_class(the_string):
-	"""
-	Eg) 'module.submodule.Class' string return tuple 'module.submodule', 'Class'
-	"""
-	return the_string.split('/')
+def split_import_specifier(the_string):
+    """
+    Eg) 'module.submodule.Class' string return tuple 'module.submodule', 'Class'
+    """
+    split = the_string.split('.')
+    return (".".join(split[:-1]), split[-1])
