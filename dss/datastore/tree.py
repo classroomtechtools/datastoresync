@@ -243,7 +243,10 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
                 print('No importer?')
                 return
             importer_mod_string, class_string = split_import_specifier(importer_string)
-            importer_mod = importlib.import_module(importer_mod_string)
+            try:
+                importer_mod = importlib.import_module(importer_mod_string)
+            except ImportError:
+                raise ImportError("Datastore tried to import via string {} given by {} but failed.".format(importer_mod_string, class_string))
             importer = getattr(importer_mod, class_string, None)
             if not importer:
                 print("Importing defined by {} could not be imported".format(importer_string))
@@ -311,9 +314,13 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
                         for set_key in [k for k in item.keys() if isinstance(item[k], set)]:
                             if set_key not in prepared:
                                 prepared[set_key] = set()
-                            prepared[set_key].update(item[set_key])
+                            try:
+                                prepared[set_key].update(item[set_key])
+                            except AttributeError:
+                                from IPython import embed;embed();exit()
                             del item[set_key]
  
+                        # Add the additional ones, too
                         prepared.update(item)
 
                         self.make_them(branch, importer_filter, **prepared)

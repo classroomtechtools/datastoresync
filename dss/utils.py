@@ -1,11 +1,11 @@
 import re, importlib
 from collections import namedtuple
 
-ActionItem = namedtuple("ActionItem", ['idnumber', 'left', 'right', 'attribute', 'message', 'func_name', 'error'])
+ActionItem = namedtuple("ActionItem", ['idnumber', 'source', 'dest', 'attribute', 'message', 'func_name', 'error'])
 
-def define_action(idnumber, left, right, attribute, message, error):
+def define_action(idnumber, source, dest, attribute, message, error):
     func_name = message[:message.index('(')]
-    return ActionItem(idnumber, left, right, attribute, message, func_name, error)
+    return ActionItem(idnumber, source, dest, attribute, message, func_name, error)
 
 def split_import_specifier(the_string):
     """

@@ -17,44 +17,66 @@ class Base:
             except AttributeError:
                 print("Cannot set {} {}".format(key, self))  # should be a log instead of a print
 
-    def _derive_global_idnumber(self):
-        all_properties = self._get_all_properties()
 
+    # def _jsonencoder(self, obj):
+    #     """
+    #     The value for the "kind" (or any enum found in a branch)
+    #     becomes {"kind": value}
+    #     """
+    #     if isinstance(obj, set):
+    #         # Sets have to be sorted lists, in order to ensure the character sequence is correct
+    #         return sorted(list(obj))
+    #     raise TypeError("Property of {} of type {} cannot be converted to json; please provide _jsonencoder method.".format(obj, type(obj)))
+
+    def _kwargs(self):
+        """
+        Responsible for providing the kwargs that will be passed onto the importer
+        Returns a tuple: (global_idnumber, kwargs_dict)
+        """
+        all_properties = self._get_all_properties()
         if hasattr(self, '_jsonencoder'):
             this = self
+            # FIXME: Let's declare this class outside of this local scope...
             class json_encoder(json.JSONEncoder):
                 def default(self, obj):
                     return this._jsonencoder(obj)
             global_idnumber = json.dumps( (self.idnumber, all_properties), cls=json_encoder)
         else:
-            global_idnumber = json.dumps( (self.idnumber, all_properties) )
+            global_idnumber = json.dumps( (self.idnumber, all_properties))
 
-        return global_idnumber
+        return global_idnumber, all_properties
 
     def _get_all_properties(self):
         ret = OrderedDict()
-        for key in [k for k in sorted(dir(self)) if k == k.strip('_')]:
-            ret[key] = getattr(self, key)
+        keys = self.__class__._keys if hasattr(self.__class__, '_keys') else [k for k in sorted(dir(self)) if k == k.strip('_')]
+        for key in keys:
+            attr = getattr(self, key)
+            # lists need to be sorted to be meaningful
+            ret[key] = getattr(self, key) if not isinstance(attr, list) else sorted(attr)
+        if not hasattr(self.__class__, '_keys'):
+            # Cache it forevermore
+            self.__class__._keys = keys
         return ret
 
-    def _get_from_branch_attr(self, specifier):
-        branch, attr = specifier.split('/')
-        b = getattr(self._tree, branch)
-        a = getattr(self, attr)
-        if b is None:
-            raise AttributeError("{} doesn't have {} branch".format(self, branch))
-        return b.get(a)
+    # TODO: Delete me: No reason
+    # def _get_from_branch_attr(self, specifier):
+    #     branch, attr = specifier.split('/')
+    #     b = getattr(self._tree, branch)
+    #     a = getattr(self, attr)
+    #     if b is None:
+    #         raise AttributeError("{} doesn't have {} branch".format(self, branch))
+    #     return b.get(a)
 
-    def _get_from_branch_attrs(self, *specifiers):
-        l = []
-        for spec in specifiers:
-            branch, attr = spec.split('/')
-            b = getattr(self._tree, branch)
-            a = getattr(self, attr)
-            if b is None:
-                raise AttributeError("{} doesn't have {} branch".format(self, branch))
-            l.append( b.get(a) )
-        return l
+    # def _get_from_branch_attrs(self, *specifiers):
+    #     l = []
+    #     for spec in specifiers:
+    #         branch, attr = spec.split('/')
+    #         b = getattr(self._tree, branch)
+    #         a = getattr(self, attr)
+    #         if b is None:
+    #             raise AttributeError("{} doesn't have {} branch".format(self, branch))
+    #         l.append( b.get(a) )
+    #     return l
 
     def __sub__(self, other):
         """

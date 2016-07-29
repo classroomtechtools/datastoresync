@@ -202,9 +202,14 @@ class DataStoreBranches(metaclass=DataStoreBranchMeta):
         # because we get the global_idnumber by calling calling _get_all_properties
         # thereby getting the internal index number used to store it
         new = cls.klass(idnumber, **kwargs)
-        new._tree = cls._tree
-        global_idnumber = new._derive_global_idnumber()
-        all_properties = new._get_all_properties()
+
+        # Debate about whether or not to do this
+        # Adds small percentage onto it
+        # TODO: Consider another way, perhaps using utils and importing
+        # new._tree = cls._tree  
+        #
+
+        global_idnumber, all_properties = new._kwargs()
 
         if not global_idnumber in cls._datastore._storeobjects:
             # Instantiate the instance, store it, call the hooks, return the new one
