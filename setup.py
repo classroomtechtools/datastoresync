@@ -2,8 +2,8 @@ from distutils.core import setup
 setup(
     name = "datastoresync",
     packages = ['dss'],
-    version = "1.1",
-    description = "Framework for defining syncing operations for databases",
+    version = "1.5",
+    description = "A python framework that makes syncing between two applications straight-forward.",
     author = "Adam Morris",
     author_email = "amorris@mistermorris.com",
     #keywords = ["moodle"],
@@ -15,13 +15,7 @@ setup(
         "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
         "Operating System :: OS Independent",
         ],
-    # entry_points='''
-    #     [console_scripts]
-    #     sync=cli.main:main
-    # ''',
     long_description = """\
-TODO: DESCRIBE THIS!
-
 This version requires Python 3 or later.
 """
 )
