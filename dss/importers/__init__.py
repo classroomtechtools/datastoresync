@@ -1,2 +1,4 @@
 from dss.importers.default_importer import DefaultImporter
-__all__ = [DefaultImporter]
+from dss.importers.csv_importer import CSVImporter
+from dss.importers.db_importer import DBImporter
+__all__ = [DefaultImporter, CSVImporter, DBImporter]

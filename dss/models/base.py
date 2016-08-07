@@ -92,6 +92,7 @@ class Base:
             return
 
         for attribute in [a for a in dir(self) if a == a.lstrip('_') and not callable(getattr(self, a))]:
+            
             try:
                 this_attr = getattr(self, attribute)
             except AttributeError:
@@ -112,7 +113,7 @@ class Base:
                 for to_remove in set(that_attr) - set(this_attr):
                     yield define_action(other.idnumber, self, other, to_remove, "remove_{attribute}_from_{branch}(idnumber={idnumber}, to={to_}, attribute={attribute}, which='{which}')".format(idnumber=other.idnumber, attribute=attribute, to_=to_remove, branch=other._branchname, which='{}.{}'.format(self._origtreename, self._branchname)), None)
 
-            elif isinstance(this_attr, set):  # both are sets                
+            elif isinstance(this_attr, set):  # both are sets
                 for to_add in this_attr - that_attr:
                     yield define_action(other.idnumber, self, other, to_add, "add_{attribute}_to_{branch}(idnumber={idnumber}, to={to_}, attribute={attribute}, which='{which}')".format(idnumber=other.idnumber, attribute=attribute, to_=to_add, branch=other._branchname, which='{}.{}'.format(other._origtreename, other._branchname)), None)
                 for to_remove in that_attr - this_attr:

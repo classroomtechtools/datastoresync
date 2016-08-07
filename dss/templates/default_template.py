@@ -2,6 +2,15 @@ debug = False
 
 class DefaultTemplate:
 
+    def result_bool(self, result):
+        return False
+
+    def success(self, action, result):
+        pass
+
+    def fail(self, action, result):
+        pass
+
     def __call__(self, action):
         debug and print(action.message)
         try:

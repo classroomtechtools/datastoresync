@@ -109,20 +109,20 @@ from dss.datastore.branch import DataStoreBranches
 
 # First define a few that we can use to ensure the branches have the same names throughout
 class StudentBranch:
-	__branchname__ = 'students'
+	_branchname = 'students'
 
 class TeacherBranch:
-	__branchname__ = 'teachers'
+	_branchname = 'teachers'
 
 # We can override anything in the defined DataStoreBranches if necessary
 class OurBranches(DataStoreBranches):
 	"""
 	Since we use an enum above, we have to define how to serialize it
-	which we can do by defining the __jsonencoder__ method
+	which we can do by defining the _jsonencoder method
 	DataStoreBranches will wrap this with json.JSONEncoder
 	and the method body will be used for the json.JSONEncoder.default method
 	"""
-	def __jsonencoder__(obj):
+	def _jsonencoder(obj):
 		"""
 		The value for the "kind" (or any enum found in a branch)
 		becomes {"kind": value}
@@ -141,16 +141,16 @@ class RightBranches(OurBranches):
 	pass
 
 class LeftStudents(LeftBranches, StudentBranch):
-	klass = '__main__/LeftStudent'
+	klass = '__main__.LeftStudent'
 
 class LeftTeachers(LeftBranches, TeacherBranch):
-	klass = '__main__/LeftTeacher'
+	klass = '__main__.LeftTeacher'
 
 class RightStudents(RightBranches, StudentBranch):
-	klass = '__main__/RightStudent'
+	klass = '__main__.RightStudent'
 
 class RightTeachers(RightBranches, TeacherBranch):
-	klass = '__main__/RightTeacher'
+	klass = '__main__.RightTeacher'
 
 
 

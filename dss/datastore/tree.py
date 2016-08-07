@@ -205,10 +205,10 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
                 result = template(action)
             if result is None:
                 not_implemented.add(action.func_name)
-            elif result['result'] is True:
-                print('Success: {}'.format(action.message))
+            elif template.result_bool(result) is True:
+                template.success(action, result)
             else:
-                print('FAIL: {} ::: {}'.format(action.message, result['message']))
+                template.fail(action, result)
         print("Not implemented:\n{}".format(", ".join(list(not_implemented))))
 
 
@@ -346,7 +346,7 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
         """
         for branch in self.branches:
             key = branch.fullname
-            del self._datastore._store[key]
+            del self._metastore._store[key]
 
     def __sub__(self, other):
         """
