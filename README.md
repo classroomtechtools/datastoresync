@@ -16,11 +16,11 @@ EX:       n/a             source        source.users              source.users.g
           |
           |                             |--- source.users   ------| idnumber='11111',name="Old Name"
           |                             |                         | idnumber='22222',name="New User"
-          |----------- source ----------|--- source.groups -|
+          |-----------    source -------|--- source.groups -|
                                                             |-----| idnumber='students',members=['11111']   
           |
           |
-          |----------- destination -----|--- dest.users  -----------| idnumber='11111',name="New Name"
+          |-----------    destination --|--- dest.users  -----------| idnumber='11111',name="New Name"
                                         |--- dest.groups --|
                                                            |--------| idnumber='students',members=['11111']
 ```
