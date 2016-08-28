@@ -51,8 +51,17 @@ class Base:
         keys = self.__class__._keys if hasattr(self.__class__, '_keys') else [k for k in sorted(dir(self)) if k == k.strip('_')]
         for key in keys:
             attr = getattr(self, key)
-            # lists need to be sorted to be meaningful
-            ret[key] = getattr(self, key) if not isinstance(attr, list) else sorted(attr)
+            # filter out the Nones in order to work right
+            # otherwise just the value
+            # FIXME: We have to convert to equiv depending on what it is a list of
+            if isinstance(attr, list):
+                filtered = ['' if a is None else a for a in attr]
+                try:
+                    ret[key] = sorted(['' if a is None else a for a in attr])
+                except TypeError:
+                    print(filtered)
+            else:
+                ret[key] = getattr(self, key)
         if not hasattr(self.__class__, '_keys'):
             # Cache it forevermore
             self.__class__._keys = keys
@@ -124,10 +133,9 @@ class Base:
 
     def __repr__(self):
         """
-        Only output fields that are guaranteed to be there to avoid attribute errors
-        Outputs the branchname because classname would be ambiguous
         """
-        return "<{}: {}>".format(self._branchname, self.idnumber)
+        return "<{}.{}.get('{}')>".format(self._origtreename, self._branchname, self.idnumber)
+
 
 if __name__ == "__main__":
 

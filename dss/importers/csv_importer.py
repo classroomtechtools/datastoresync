@@ -78,6 +78,8 @@ class TranslatedCSVImporter:
                 for kwargs_in in csv_importer.readin():
                     if kwargs_preprocessor:
                         kwargs = kwargs_preprocessor(kwargs_in)
+                        if kwargs is None:
+                            continue
                     else:
                         kwargs = kwargs_in
                     if filter_callable:
@@ -91,6 +93,8 @@ class TranslatedCSVImporter:
                     for kwargs_in in reader:
                         if kwargs_preprocessor:
                             kwargs = kwargs_preprocessor(kwargs_in)
+                            if kwargs is None:
+                                continue
                         else:
                             kwargs = kwargs_in
 

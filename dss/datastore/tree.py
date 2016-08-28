@@ -200,15 +200,18 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
         not_implemented = set()
         for action in self - other:
             if other._filter and len([1 for k in other._filter.keys() if getattr(action, k) == other._filter[k]]) == len(list(other._filter.keys())):
-                result = template(action)
+                results = template(action)
             else:
-                result = template(action)
-            if result is None:
-                not_implemented.add(action.func_name)
-            elif template.result_bool(result) is True:
-                template.success(action, result)
-            else:
-                template.fail(action, result)
+                results = template(action)
+            if not isinstance(results, list):
+                results = [results]
+            for result in results:
+                if result is None:
+                    not_implemented.add(action.func_name)
+                elif template.result_bool(result) is True:
+                    template.success(action, result)
+                else:
+                    template.fail(action, result)
         print("Not implemented:\n{}".format(", ".join(list(not_implemented))))
 
 
@@ -250,7 +253,6 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
             importer = getattr(importer_mod, class_string, None)
             if not importer:
                 print("Importing defined by {} could not be imported".format(importer_string))
-                Returns
             importer_inst = importer(self, branch)
             verbose and print("Importer instance for {} branch of {}: {}...".format(branch.fullname, self.__class__.__name__, importer_inst._branch.fullname))
             importer_inst._branchname = branch._branchname
@@ -272,6 +274,8 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
                 for kwargs_in in importer_inst.readin():
                     if kwargs_preprocessor:
                         kwargs = kwargs_preprocessor(kwargs_in)
+                        if kwargs is None:
+                            continue
                     else:
                         kwargs = kwargs_in
 
@@ -290,6 +294,8 @@ class DataStoreTree(metaclass=DataStoreTreeMeta):
                     for kwargs_in in reader:
                         if kwargs_preprocessor:
                             kwargs = kwargs_preprocessor(kwargs_in)
+                            if kwargs is None:
+                                continue
                         else:
                             kwargs = kwargs_in
                         has_list_value = len([1 for k in kwargs.keys() if isinstance(kwargs[k], (list,set))]) > 0
